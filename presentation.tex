@@ -1,0 +1,187 @@
+\documentclass[t]{beamer}
+\usecolortheme{beaver} 
+\useinnertheme{circles}
+\useinnertheme{rectangles}
+
+%%% Работа с русским языком
+\usepackage{cmap}					% поиск в PDF
+\usepackage{mathtext} 				% русские буквы в формулах
+\usepackage[T2A]{fontenc}			% кодировка
+\usepackage[utf8]{inputenc}			% кодировка исходного текста
+\usepackage[english,russian]{babel}	% локализация и переносы
+
+%%% Дополнительная работа с математикой
+\usepackage{amsmath,amsfonts,amssymb,amsthm,mathtools} % AMS
+\usepackage{icomma} % "Умная" запятая: $0,2$ --- число, $0, 2$ --- перечисление
+
+%% Свои команды
+\DeclareMathOperator{\sgn}{\mathop{sgn}}
+
+%% Перенос знаков в формулах (по Львовскому)
+\newcommand*{\hm}[1]{#1\nobreak\discretionary{}
+{\hbox{$\mathsurround=0pt #1$}}{}}
+
+%%% Другие пакеты
+\usepackage{lastpage} % Узнать, сколько всего страниц в документе.
+\usepackage{soul} % Модификаторы начертания
+\usepackage{csquotes} % Еще инструменты для ссылок
+%\usepackage[style=authoryear,maxcitenames=2,backend=biber,sorting=nty]{biblatex}
+\usepackage{multicol} % Несколько колонок
+\usepackage{listings}
+\usepackage{relsize}
+\usepackage{hyperref}
+
+
+\title{Crossed Wires}
+
+\author{Кулигин Данил и Хуснуллин Риналь}
+\date{1 июля 2022 г.}
+\institute[БФУ им. Иммануила Канта]{ИФМНиИТ \\ Компьютерная безопасность, 2 курс}
+
+\begin{document}
+
+\frame[plain]{\titlepage}	% Титульный слайд
+
+\section{Условие задачи Crossed Wires}
+\subsection{Описание с CryptoHack}
+\begin{frame}
+	\frametitle{\insertsection}
+	\framesubtitle{\insertsubsection}
+    \begin{itemize}
+    "Я попросил своих друзей зашифровать наш секретный флаг, прежде чем отправлять его мне, но вместо того, чтобы использовать мой ключ, все они использовали свой собственный! Вы можете помочь?"\newline\newline
+    
+    Так же к задаче прилагаются файлы \slshape source.py \upshape и \slshape output.txt.
+    source.py \upshape содержит код, при выполнении которого мы получим содержимое файла \slshape output.txt. \upshape Сам же \slshape output.txt \upshape содержит шифрованный флаг, секретный ключ (N, d) и публичные ключи ([(N,k1),(N,k2),...])
+
+    \end{itemize}
+\end{frame}
+
+\section{Решение задачи Crossed Wires}
+
+\subsection{Код решения данной задачи}
+
+\begin{frame}[fragile]
+	\frametitle{\insertsection} 
+	\framesubtitle{\insertsubsection}
+	\footnotesize
+	\smaller
+\begin{lstlisting}[language=Python]
+from Crypto.Util.number import inverse, long_to_bytes
+
+encrypted_flag = 203046102795781867381727662242247931...
+e = 0x10001 # e = 65537
+
+my_private_key = (217113..., 273441...)
+# n = 217113...
+# d = 273441...
+
+friends_keys_list = [(217113..., 106979), (217113..., 108533), 
+(217113..., 69557), (217113..., 97117), (217113..., 103231)]
+# keys = [106979, 108533, 69557, 97117, 103231]
+
+prod = 1
+for key in friends_keys_list:
+    prod *= key[1]
+    
+D = inverse(prod, e*my_private_key[1]-1)
+print(long_to_bytes(pow(encrypted_flag,d,my_private_key[0])))
+
+# Output: b'crypto{3ncrypt_y0ur_s3cr3t_w1th_y0ur_fr1end5_
+publ1c_k3y}'
+\end{lstlisting}
+	
+\end{frame}
+
+
+\subsection{Обьяснение кода}
+
+\begin{frame}
+	\frametitle{Решение задачи Crossed Wires}
+	\framesubtitle{\insertsubsection}
+    \begin{enumerate}
+        \item<1-> $\sqsupset k_1, k_2, k_3, k_4, k_5$ - ключи друзей (keys) и введём переменную $prod = k_1 \cdot k_2 \cdot ... \cdot k_5$
+        \item<2-> Предположим, что $m$ - это флаг, тогда шифртекст $c$ вычисляется так: \( m^{prod} \pmod {n} = c \)
+        \item<3-> Заметим, что не обязательно вычислять $\varphi(n)$ или делать факторизацию $n$. Достаточно посчитать: $e \cdot d - 1 = k \cdot \varphi(n)$ [ссылка 2]
+        \item<4-> Тогда мы получим $D = prod^{-1} \pmod {e \cdot d - 1}$ и выведем в консоль $c^D \pmod{n}$, предварительно применив функцию long\_to\_bytes, чтобы привести сообщение в исходный вид.
+    \end{enumerate}
+\end{frame}
+
+\section{Концепция RSA}
+\subsection{Математическая модель}
+
+\begin{frame}[t] % [t], [c], или [b] --- вертикальное выравнивание на слайде (верх, центр, низ)
+	\frametitle{\insertsection}
+	\framesubtitle{\insertsubsection}
+	\begin{itemize}
+		\item<1-> Асимметричные криптографические системы основаны на так называемых односторонних функциях с секретом.\newline 
+		Например, операция возведения числа в степень по модулю: \newline 
+		\begin{center} \( c\equiv f(m) \equiv m^e \pmod{n} \) \newline
+		\( m\equiv f^{-1}(c) \equiv c^d \pmod{n} \) \newline 
+		\( d\equiv e^{-1} \pmod{\varphi(n)} \) \newline \end{center}
+		\item<2-> \boldsymbol{\alert{c}} получено возведением в степень по модулю числа m. Назовём это действие шифрованием
+		\newline 
+		\boldsymbol{\alert{m}} - открытый текст, а \boldsymbol{\alert{c}} - шифртекст
+		\newline 
+		Пара чисел (\boldsymbol{\alert{e}}, \boldsymbol{\alert{n}}) - открытый ключ
+		\newline
+		\boldsymbol{\alert{d}} - закрытый ключ 
+	\end{itemize}
+\end{frame}
+
+\subsection{Математическая модель}
+
+\begin{frame}
+	\frametitle{\insertsection}
+	\framesubtitle{\insertsubsection}
+    \begin{itemize}
+        \item<1-> 
+            Пусть $ \boldsymbol{\alert{n}} = p \cdot q $, где где p и q – некоторые разные простые числа. Для такого n функция Эйлера имеет вид: \newline 
+            \begin{center} $\varphi(n) = (p - 1) \cdot (q - 1)$ \end{center}
+            \vspace{3mm}
+        \item<2-> 
+            Выберем такое число \boldsymbol{\alert{e}}: \newline 
+            \begin{center}
+               \hspace{10mm} $ e \in [3, \varphi(n) - 1]$ \newline 
+                $НОД(e, \varphi(n) - 1) = 1$
+            \end{center}
+            Вычислим \alert{\boldsymbol{d}}:  \newline 
+            \begin{center}
+                \( d\equiv e^{-1} \pmod{\varphi(n)} \)
+            \end{center}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{\insertsection}
+	\framesubtitle{\insertsubsection}
+	\begin{itemize}
+	    \item<1-> Возьмём в качестве сообщения число $m \in [1, n-1]$ \newline 
+	    Чтобы зашифровать его, необходимо возвести \newline его в степень \boldsymbol{\alert{e}} по модулю \boldsymbol{\alert{n}} \newline 
+	    \begin{center}
+	         \( c\equiv m^{e} \pmod{n} \)
+	         \vspace{3mm}
+	    \end{center}
+	    Отметим также, что $\boldsymbol{\alert{c}} \in [1, n-1]$, как и \boldsymbol{\alert{m}}. Расшифруем шифртекст, возведя его в степень закрытого ключа \boldsymbol{\alert{d}}:
+	    
+	    \begin{center}
+	    \vspace{3mm}
+	        \( m` \equiv c^d \pmod{n} \)
+	        \vspace{3mm}
+	    \end{center}
+	\end{itemize}
+\end{frame}
+
+
+\section{Используемая литература}
+
+\begin{frame}
+    \frametitle{\insertsection}
+    \begin{thebibliography}{1}
+    \bibitem{2}RSA: от простых чисел до электронной подписи \newline 
+    https://habr.com/ru/post/534014/
+    \bibitem{2}Cracking short RSA keys \newline 
+    https://stackoverflow.com/questions/4078902/cracking-short-rsa-keys
+    \end{thebibliography}
+\end{frame}
+
+\end{document}
